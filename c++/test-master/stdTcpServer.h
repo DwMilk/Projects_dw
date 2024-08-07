@@ -1,8 +1,10 @@
 #ifndef __STDTCPSERVER_H__
 #define __STDTCPSERVER_H__
-#include <memory>
-#include <string>
 
+#include <iostream>
+using namespace std;
+#include <string>
+#include <memory>
 
 /* 前置声明 */
 struct StdTcpSocketPrivate;
@@ -12,27 +14,29 @@ struct StdTcpServerPrivate;
 class StdTcpSocket
 {
 public:
+    /* 构造函数 */
     StdTcpSocket();
+
+    /* 析构函数 */
     ~StdTcpSocket();
+
 public:
     /* 连接服务器 */
-    int connctToServer(const char * ip,int port);
+    int connectToServer(const char * ip, int port);
     /* 是否连接成功 */
-    bool isConnected() ;
-    void SetConnection(int sockfd,bool m_isRunning);
+    bool isConnected() const;
     /* 发送信息 */
     int sendMessage(std::string & sendMsg);
-    int sendMessage(const char * sendMsg,size_t n);
-
+    /* 发送信息 */
+    int sendMessage(const char * sendMsg, size_t n);
     /* 接收信息 */
-    int receiveMessage(std::string & receiveMsg);
-    int receiveMessage(void * buf,size_t n);
-
+    int recvMessage(std::string & recvMessage);
+    /* 接收信息 */
+    int recvMessage(void * buf, size_t n);
     /* 设置属性 */
-    StdTcpSocketPrivate * getSockAttr() ;
+    StdTcpSocketPrivate * getSockAttr();
 private:
     /* 智能指针 */
-    // std::shared_ptr<StdTcpSocketPrivate> m_sockAttr;
     std::unique_ptr<StdTcpSocketPrivate> m_sockAttr;
 };
 
@@ -43,16 +47,17 @@ using StdTcpSocketPtr = std::shared_ptr<StdTcpSocket>;
 class StdTcpServer
 {
 public:
+    /* 构造函数 */
     StdTcpServer();
-    ~StdTcpServer();
 
+    /* 析构函数 */
+    ~StdTcpServer();
 public:
     /* 设置监听 */
     bool setListen(int port);
 
-    /* 接收客户端连接 */
+    /* 接收连接 */
     std::shared_ptr<StdTcpSocket> getClientSock();
-
 private:
     /* 端口 */
     int m_port;
@@ -60,4 +65,5 @@ private:
     std::unique_ptr<StdTcpServerPrivate> m_tcpAttr;
 };
 
-#endif
+
+#endif //__STDTCPSERVER_H__

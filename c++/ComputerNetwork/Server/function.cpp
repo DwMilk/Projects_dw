@@ -1,19 +1,36 @@
 #include "function.h"
+#include <string>
+using namespace std;
+Function::Function(const StdTcpSocketPtr & clientInfo)
+{
+    m_clientInfo = clientInfo;
+}
 
-void Function::handleRegisterInfo(const char *username, const char *passwd)
+Function::~Function()
 {
 }
 
-void Function::handleLoginInfo(const char *username, const char *passwd)
+void Function::handleRegisterInfo(const Msg & msg)
 {
+    std::cout << "username:" << msg.name << std::endl;
+    std::cout << "passwd:" << msg.passwd << std::endl;
+    string replyInfo = "注册成功";
+    m_clientInfo->sendMessage(replyInfo);
+}
+
+void Function::handleLoginInfo(const Msg & msg)
+{
+    std::cout << "username:" << msg.name << std::endl;
+    std::cout << "passwd:" << msg.passwd << std::endl;
+    string replyInfo = "登陆失败，密码不正确.";
+    m_clientInfo->sendMessage(replyInfo);
+#if 0
     /* 判断用户名是否已经存在 */
     if (userIsExist(username) == false)
     {
         /* 程序进入，说明用户名不存在*/
 
-
         /* 将信息发送到客户端 */
-        
     }
     else
     {
@@ -22,6 +39,24 @@ void Function::handleLoginInfo(const char *username, const char *passwd)
         /* 判断用户是否已经登陆 */
         userIsOnline(username);
     }
+#endif
+    
+}
+
+void Function::handleAddFrienfInfo(const Msg & msg)
+{
+}
+
+void Function::handleDeleteFrienfInfo(const Msg & msg)
+{
+}
+
+void Function::handleNewGroup(const Msg & msg)
+{
+}
+
+void Function::handleExitGroupInfo(const Msg & msg)
+{
 }
 
 bool Function::userIsExist(const char *username)

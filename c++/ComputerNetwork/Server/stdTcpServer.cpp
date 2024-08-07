@@ -9,8 +9,23 @@ using namespace std;
 #include <ctype.h>
 #include <arpa/inet.h>
 
+struct StdTcpSocketPrivate
+{
+    /* 通信句柄 */
+    int connfd;
+    /* 通信是否建立成功 */
+    bool m_connected;
+};
+struct StdTcpServerPrivate
+{
+    /* 监听句柄 */
+    int sockfd;
+    /* 服务器是否正在监听 */
+    bool m_isRunning;
+};
+
 /* 构造 */
-StdTcpServer::StdTcpServer() : m_tcpAttr(std::make_shared<StdTcpServerPrivate>())
+StdTcpServer::StdTcpServer() : m_tcpAttr(std::make_unique<StdTcpServerPrivate>())
 {
     /* 监听套接字 */
     m_tcpAttr->sockfd = -1;
@@ -21,9 +36,10 @@ StdTcpServer::StdTcpServer() : m_tcpAttr(std::make_shared<StdTcpServerPrivate>()
 StdTcpServer::~StdTcpServer()
 {
     /* 文件句柄 */
-    close(m_tcpAttr->sockfd);
-    m_tcpAttr->sockfd = -1;
-    m_tcpAttr->m_isRunning = false;
+    if (m_tcpAttr->sockfd > 0)
+    {
+        close(m_tcpAttr->sockfd);
+    }
 }
 
 /* 设置监听 */
@@ -36,7 +52,7 @@ bool StdTcpServer::setListen(int port)
     if (sockfd == -1)
     {
         perror("socket error");
-        return false;
+        throw std::runtime_error("socket create error.");
     }
     cout << "sockfd:" << sockfd << endl;
     /* 设置套接字 */
@@ -47,7 +63,7 @@ bool StdTcpServer::setListen(int port)
     if (ret != 0)
     {
         perror("bind error:");
-        return false;
+        throw std::runtime_error("setsocket error.");
     }
     /* 绑定IP和端口 */
     struct sockaddr_in localAddress;
@@ -61,35 +77,41 @@ bool StdTcpServer::setListen(int port)
     if (ret != 0)
     {
         perror("bind error:");
-        return false;
+        throw std::runtime_error("bind error.");
     }
     /* 给监听的套接字设置监听  */
     ret = listen(sockfd, 10);
     if (ret != 0)
     {
         perror("listen error:");
-        return false;
+        throw std::runtime_error("listen error.");
     }
     m_tcpAttr->m_isRunning = true;
     return true;
 }
 
 /* 接受连接 */
-int StdTcpServer::getClientSock()
+std::shared_ptr<StdTcpSocket> StdTcpServer::getClientSock()
 {
     int clientConnfd = accept(m_tcpAttr->sockfd, NULL, NULL);
     if (clientConnfd == -1)
     {
         perror("accept error:");
-        return -1;
+        throw std::runtime_error("accecpt error.");
     }
 
     /* 程序到这个地方，就说明有客户端连接 */
     cout << "clientConnfd:" << clientConnfd << endl;
-    return clientConnfd;
+
+    /* 通信类 */
+    auto client = make_shared<StdTcpSocket>();
+    /* 套接字 */
+    client->getSockAttr()->connfd = clientConnfd;
+    client->getSockAttr()->m_connected = true;
+    return client;
 }
 
-StdTcpSocket::StdTcpSocket() : m_sockAttr(std::make_shared<StdTcpSocketPrivate>())
+StdTcpSocket::StdTcpSocket() : m_sockAttr(std::make_unique<StdTcpSocketPrivate>())
 {
     m_sockAttr->connfd = -1;
     m_sockAttr->m_connected = false;
@@ -98,9 +120,10 @@ StdTcpSocket::StdTcpSocket() : m_sockAttr(std::make_shared<StdTcpSocketPrivate>(
 StdTcpSocket::~StdTcpSocket()
 {
     /* 文件句柄 */
-    close(m_sockAttr->connfd);
-    m_sockAttr->connfd = -1;
-    m_sockAttr->m_connected = false;
+    if (m_sockAttr->connfd > 0)
+    {
+        close(m_sockAttr->connfd);
+    }
 }
 
 int StdTcpSocket::connctToServer(const char *ip, int port)
@@ -110,7 +133,8 @@ int StdTcpSocket::connctToServer(const char *ip, int port)
     if (sockfd == -1)
     {
         perror("socket error:");
-        return -1;
+        /* 抛出异常 */
+        throw std::runtime_error("socket create error:");
     }
     m_sockAttr->connfd = sockfd;
 
@@ -128,7 +152,7 @@ int StdTcpSocket::connctToServer(const char *ip, int port)
     if (ret != 0)
     {
         perror("connect error:");
-        return -1;
+        throw std::runtime_error("connect failed.");
     }
     m_sockAttr->m_connected = true;
     return 0;
@@ -155,6 +179,12 @@ int StdTcpSocket::sendMessage(const char *sendMsg, size_t n)
 {
     int writeBytes = write(m_sockAttr->connfd, sendMsg, n);
     return writeBytes;
+}
+
+/* 获取属性 */
+StdTcpSocketPrivate *StdTcpSocket::getSockAttr()
+{
+    return m_sockAttr.get();
 }
 
 /* 接受信息 */

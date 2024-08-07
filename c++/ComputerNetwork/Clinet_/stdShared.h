@@ -1,5 +1,5 @@
-#ifndef __STDSHARED_H__
-#define __STDSHARED_H__
+#ifndef _STDSHARED_H_
+#define _STDSHARED_H_
 
 enum FUNCTION_OPTION
 {
