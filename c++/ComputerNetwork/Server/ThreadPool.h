@@ -53,6 +53,9 @@ public:
     /* 条件变量 */
     pthread_cond_t m_queueNotEmpty;
     pthread_cond_t m_queueNotFull;
+
+    /* 要减少的线程数 */
+    int m_exitNum;
 };
 
 #endif

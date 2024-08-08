@@ -175,7 +175,7 @@ int StdTcpSocket::sendMessage(std::string &sendMsg)
     return sendMessage(sendMsg.c_str(), sendMsg.size());
 }
 
-int StdTcpSocket::sendMessage(const char *sendMsg, size_t n)
+int StdTcpSocket::sendMessage(const void *sendMsg, size_t n)
 {
     int writeBytes = write(m_sockAttr->connfd, sendMsg, n);
     return writeBytes;

@@ -1,5 +1,7 @@
 #include "function.h"
 #include <string>
+#include <unistd.h>
+#include <cstring>
 using namespace std;
 Function::Function(const StdTcpSocketPtr & clientInfo)
 {
@@ -14,16 +16,60 @@ void Function::handleRegisterInfo(const Msg & msg)
 {
     std::cout << "username:" << msg.name << std::endl;
     std::cout << "passwd:" << msg.passwd << std::endl;
-    string replyInfo = "注册成功";
-    m_clientInfo->sendMessage(replyInfo);
+
+#if 1   
+    ReplyMsg responseMsg;
+    responseMsg.type = REGISTER;
+    /* 判断用户是否存在 */
+    if(userIsExist(msg.name) == true)
+    {
+        responseMsg.statue_code = REGISTER_USEREXIST;
+    }
+    else
+    {
+        responseMsg.statue_code = REGISTER_SUCCESS;
+        /* todo... */
+    }
+    /* 将消息发送会客户端 */
+    this->m_clientInfo->sendMessage(static_cast<const void *>(&responseMsg),sizeof(responseMsg));
+#endif 
 }
 
 void Function::handleLoginInfo(const Msg & msg)
 {
     std::cout << "username:" << msg.name << std::endl;
     std::cout << "passwd:" << msg.passwd << std::endl;
-    string replyInfo = "登陆失败，密码不正确.";
-    m_clientInfo->sendMessage(replyInfo);
+
+
+
+    string username(msg.name);
+    string passwd(msg.passwd);
+    ReplyMsg responseMsg;
+    memset(&responseMsg,0,sizeof(responseMsg));
+
+    responseMsg.type = LOGIN;
+    if(username == "zhangsan" )
+    {
+        if(passwd == "123456")
+        {
+            /* 用户名和密码匹配 - 登陆成功 */
+            responseMsg.statue_code =LOGIN_SUCCESS;
+        }
+        else
+        {
+            /* 用户名不匹配 - 登录失败 */
+            responseMsg.statue_code = LOGIN_PASSWD_ERROR;
+        }
+    }
+    else
+    {
+        /* 没有该用户 */
+        responseMsg.statue_code = LOGIN_NOUSER;
+        
+    }
+    /* 发送信息给客户端 */
+    m_clientInfo->sendMessage(static_cast<const void *> (&responseMsg),sizeof(responseMsg));
+
 #if 0
     /* 判断用户名是否已经存在 */
     if (userIsExist(username) == false)

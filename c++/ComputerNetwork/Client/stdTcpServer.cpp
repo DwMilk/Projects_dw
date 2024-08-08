@@ -1,36 +1,36 @@
-#include "stdTcpServer.h"
-#include <iostream>
+using namespace std;
 #include <sys/types.h>
 #include <sys/socket.h>
-using namespace std;
 #include <unistd.h>
 #include <cstring>
 #include <netinet/in.h>
-#include <ctype.h>
+#include <pthread.h>
+#include "stdTcpServer.h"
+/* 地址转成二进制头文件 */
 #include <arpa/inet.h>
 
-/* 构造 */
-StdTcpServer::StdTcpServer() : m_tcpAttr(std::make_shared<StdTcpServerPrivate>())
+StdTcpServer::StdTcpServer()
 {
+    m_tcpAttr = std::make_shared<stdTcpServerPrivate>();
     /* 监听套接字 */
     m_tcpAttr->sockfd = -1;
-    /* 是否监听 */
-    m_tcpAttr->m_isRunning = false;
-}
-/* 析构 */
-StdTcpServer::~StdTcpServer()
-{
-    /* 文件句柄 */
-    close(m_tcpAttr->sockfd);
-    m_tcpAttr->sockfd = -1;
+    /* 是否监听套接字 */
     m_tcpAttr->m_isRunning = false;
 }
 
-/* 设置监听 */
+StdTcpServer::~StdTcpServer()
+{
+    /* 关闭套接字句柄 */
+    close(m_tcpAttr->sockfd);
+    m_tcpAttr->sockfd = -1;
+    m_tcpAttr->m_isRunning - false;
+}
+
 bool StdTcpServer::setListen(int port)
 {
-    /* 类内部维护端口信息 */
+    /* 维护内部端口 */
     this->m_port = port;
+
     /* 创建套接字 */
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1)
@@ -38,78 +38,98 @@ bool StdTcpServer::setListen(int port)
         perror("socket error");
         return false;
     }
-    cout << "sockfd:" << sockfd << endl;
+
     /* 设置套接字 */
     m_tcpAttr->sockfd = sockfd;
+
     /* 设置端口复用 */
     int optVal = 1;
     int ret = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optVal, sizeof(optVal));
     if (ret != 0)
     {
-        perror("bind error:");
+        perror("bind error");
         return false;
     }
-    /* 绑定IP和端口 */
+
+    /* 将文件描述符和本地的IP与端口进行绑定 */
     struct sockaddr_in localAddress;
     memset(&localAddress, 0, sizeof(localAddress));
     /* 地址族 */
     localAddress.sin_family = AF_INET;
-    localAddress.sin_port = htons(m_port);
-    localAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-
+    /* 本地地址小端字节序，转换成网络大端字节序 */
+    localAddress.sin_port = htons(SERVER_PORT);
+    localAddress.sin_addr.s_addr = htonl(INADDR_ANY); /* 具体的ip地址 */
+    /* 绑定 */
     ret = bind(sockfd, reinterpret_cast<const sockaddr *>(&localAddress), sizeof(localAddress));
     if (ret != 0)
     {
-        perror("bind error:");
+        perror("bind error");
         return false;
     }
-    /* 给监听的套接字设置监听  */
-    ret = listen(sockfd, 10);
+
+    /* 给监听的套接字设置监听 */
+    ret = listen(sockfd, 0);
     if (ret != 0)
     {
-        perror("listen error:");
-        return false;
+        perror("listen error!");
+        _exit(-1);
     }
+
+    /*  */
     m_tcpAttr->m_isRunning = true;
+
     return true;
 }
 
-/* 接受连接 */
-int StdTcpServer::getClientSock()
+std::shared_ptr<StdTcpSocket> StdTcpServer::getClientSock()
 {
     int clientConnfd = accept(m_tcpAttr->sockfd, NULL, NULL);
     if (clientConnfd == -1)
     {
-        perror("accept error:");
-        return -1;
+        perror("accept error");
+        return std::make_shared<StdTcpSocket>();
     }
-
     /* 程序到这个地方，就说明有客户端连接 */
-    cout << "clientConnfd:" << clientConnfd << endl;
-    return clientConnfd;
+    cout << "clientConnfd: " << clientConnfd << endl;
+
+    /* 通信类 */
+    std::shared_ptr<StdTcpSocket> ptr = std::make_shared<StdTcpSocket>();
+
+    /* 套接字 */
+    ptr->getSockAttr()->connfd = clientConnfd;
+    ptr->getSockAttr()->m_connected = true;
+
+    return ptr;
 }
 
-StdTcpSocket::StdTcpSocket() : m_sockAttr(std::make_shared<StdTcpSocketPrivate>())
+/* 构造函数 */
+StdTcpSocket::StdTcpSocket()
 {
+    m_sockAttr = new StdTcpSocketPrivate;
+    /* 通信句柄 */
     m_sockAttr->connfd = -1;
+    /* 通信是否建立 */
     m_sockAttr->m_connected = false;
 }
 
 StdTcpSocket::~StdTcpSocket()
 {
-    /* 文件句柄 */
     close(m_sockAttr->connfd);
+    /* 状态重置 */
     m_sockAttr->connfd = -1;
     m_sockAttr->m_connected = false;
+
+    delete m_sockAttr;
 }
 
-int StdTcpSocket::connctToServer(const char *ip, int port)
+/* 连接服务器 */
+int StdTcpSocket::connectToServer(const char *ip, int port)
 {
     /* 创建套接字 */
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1)
     {
-        perror("socket error:");
+        perror("socket error");
         return -1;
     }
     m_sockAttr->connfd = sockfd;
@@ -120,52 +140,52 @@ int StdTcpSocket::connctToServer(const char *ip, int port)
 
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(port);
+    /* 地址转换成二进制 */
+    inet_pton(AF_INET, ip, &serverAddress.sin_addr.s_addr);
 
-    /* 接受到ip地址 */
-    inet_pton(AF_INET, ip, &(serverAddress.sin_addr.s_addr));
-
+    /* 开始连接 */
     int ret = connect(sockfd, reinterpret_cast<const sockaddr *>(&serverAddress), sizeof(serverAddress));
     if (ret != 0)
     {
-        perror("connect error:");
-        return -1;
+        perror("connect error");
+        return (-1);
     }
+
     m_sockAttr->m_connected = true;
     return 0;
 }
 
+/* 判断是否连接成功 */
 bool StdTcpSocket::isConnected()
 {
     return m_sockAttr->m_connected;
 }
 
-void StdTcpSocket::SetConnection(int sockfd, bool m_isRunning)
-{
-    m_sockAttr->connfd = sockfd;
-    m_sockAttr->m_connected = m_isRunning;
-}
-
-/* 发送信息 */
 int StdTcpSocket::sendMessage(std::string &sendMsg)
 {
     return sendMessage(sendMsg.c_str(), sendMsg.size());
 }
 
+/* 发送信息 */
 int StdTcpSocket::sendMessage(const void *sendMsg, size_t n)
 {
     int writeBytes = write(m_sockAttr->connfd, sendMsg, n);
     return writeBytes;
 }
 
-/* 接受信息 */
-int StdTcpSocket::receiveMessage(std::string &receiveMsg)
+int StdTcpSocket::recvMessage(std::string &recvMsg)
 {
-    /* todo... */
-    return 0;
+    return recvMessage((void *)recvMsg.c_str(), recvMsg.size());
 }
 
-int StdTcpSocket::receiveMessage(void *buf, size_t n)
+/* 接受信息 */
+int StdTcpSocket::recvMessage(void *buf, size_t n)
 {
     int readBytes = read(m_sockAttr->connfd, buf, n);
     return readBytes;
+}
+
+StdTcpSocketPrivate *StdTcpSocket::getSockAttr()
+{
+    return m_sockAttr;
 }

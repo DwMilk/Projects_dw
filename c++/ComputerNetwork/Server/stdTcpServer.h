@@ -22,7 +22,7 @@ public:
     void SetConnection(int sockfd,bool m_isRunning);
     /* 发送信息 */
     int sendMessage(std::string & sendMsg);
-    int sendMessage(const char * sendMsg,size_t n);
+    int sendMessage(const void * sendMsg,size_t n);
 
     /* 接收信息 */
     int receiveMessage(std::string & receiveMsg);

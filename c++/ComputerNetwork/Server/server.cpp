@@ -22,7 +22,7 @@ void * handleClinetInfo(void *arg)
     MessageHandle handles(clientInfo);
     while (1)
     {
-        int readBytes = clientInfo->receiveMessage(&msg, sizeof(msg));
+        readBytes = clientInfo->receiveMessage(&msg, sizeof(msg));
         if (readBytes <= 0)
         {
             cout << "readBytes <= 0" << endl;
@@ -38,7 +38,8 @@ void * handleClinetInfo(void *arg)
     /* 资源回收 */
     /* 线程退出 */
     
-    pthread_exit(NULL);
+    // pthread_exit(NULL);
+    return NULL;
 }
 int main()
 {
@@ -55,7 +56,7 @@ int main()
         _exit(-1);
     }
     cout << "server listening..." << endl;
-    int ret = 0;
+    // int ret = 0;
     while (1)
     {
         StdTcpSocketPtr clientInfo = server.getClientSock();

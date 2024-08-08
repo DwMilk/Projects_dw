@@ -1,12 +1,105 @@
 #include "ThreadPool.h"
 #include <cstring>
 #include <unistd.h>
+#include <signal.h>
 #define DEFAULT_MINTHREADS 3
 #define DEFAULT_MAXTHREADS 8
+#define INCREASE_NUMS 2
+#define DECREASE_NUMS 2
+// /* 判断线程是否存活 */
+// bool threadsIsAlive(pthread_t tid)
+// {
+//     int res = pthread_kill(tid, 0);
+//     if (res == ESRCH)
+//     {
+//         return false;
+//     }
+//     return true;
+// }
+
+void exitThread(ThreadPool *pool, pthread_t tid)
+{
+    for (int idx = 0; idx < pool->m_maxThreadsNums; idx++)
+    {
+        if (pool->m_threads[idx] == tid)
+        {
+            pool->m_threads[idx] = 0;
+            /* 线程退出 */
+            pthread_exit(NULL);
+        }
+    }
+}
+void *workerThreadFunc(void *arg);
+
 /* 管理者线程 */
 void *manageThreadFunc(void *arg)
 {
-    pthread_exit(NULL);
+    /* 线程分离 */
+    pthread_detach(pthread_self());
+    /* 管理者线程要管理线程池 */
+    ThreadPool *pool = (ThreadPool *)arg;
+    while (true)
+    {
+        /* 休眠 */
+        sleep(1);
+        /* 共享数据 加锁 */
+        /* 去除任务队列的任务个数 */
+        /* 取出活跃的线程数 */
+        pthread_mutex_lock(&(pool->m_mutex));
+        int queueSize = pool->m_queueSize;
+        int aliveThreadNums = pool->m_aliveThreadNums;
+        pthread_mutex_unlock(&(pool->m_mutex));
+
+        /* 取出忙碌的线程数 */
+        pthread_mutex_lock(&(pool->m_busyMutex));
+        int busyThreadNums = pool->m_busyThreadNums;
+        pthread_mutex_unlock(&(pool->m_busyMutex));
+
+        // printf("queueSize = %d,alive ThradsNums = %d,busyThreadsNums = %d\n", queueSize, aliveThreadNums, busyThreadNums);
+        /* 任务队列的任务数大于活跃线程数  */
+        int addCnt = 0;
+        int ret = 0;
+
+        if (queueSize > (aliveThreadNums - busyThreadNums) && aliveThreadNums < pool->m_maxThreadsNums)
+        {
+
+            pthread_mutex_lock(&(pool->m_mutex));
+
+            for (int idx = 0; idx < pool->m_maxThreadsNums && addCnt < INCREASE_NUMS; idx++)
+            {
+                /* 探测*/
+                if (pool->m_threads[idx] == 0)
+                {
+                    ret = pthread_create(&(pool->m_threads[idx]), NULL, workerThreadFunc, pool);
+                    if (ret != 0)
+                    {
+                        perror("create error:");
+                        throw std::runtime_error("thread_create error");
+                    }
+                    printf("%ld add join threadpool\n", pool->m_threads[idx]);
+
+                    addCnt++;
+                    /* 活着的线程 */
+                    (pool->m_aliveThreadNums)++;
+                }
+            }
+            pthread_mutex_unlock(&(pool->m_mutex));
+        }
+        /* 需要减少线程池的线程数 */
+        /* 任务队列任务数 远小于 未工作的线程数 */
+        if (queueSize < (aliveThreadNums - busyThreadNums) && aliveThreadNums > pool->m_minThreadsNums)
+        {
+            /* 减少线程 */
+            pthread_mutex_lock(&(pool->m_mutex));
+
+            pool->m_exitNum = DECREASE_NUMS;
+            for (int idx = 0; idx < DECREASE_NUMS; idx++)
+            {
+                pthread_cond_signal(&(pool->m_queueNotEmpty));
+            }
+            pthread_mutex_unlock(&(pool->m_mutex));
+        }
+    }
 }
 
 /* 工作者线程 */
@@ -24,9 +117,26 @@ void *workerThreadFunc(void *arg)
 
         while (pool->m_queueSize == 0)
         {
-            std::cout << "waiting "<<std::endl;
+            usleep(1000);
             /* 线程同步，等待，然后解锁 */
             pthread_cond_wait(&(pool->m_queueNotEmpty), &(pool->m_mutex));
+            if (pool->m_exitNum > 0)
+            {
+                (pool->m_exitNum)--;
+
+                if (pool->m_aliveThreadNums > pool->m_minThreadsNums)
+                {
+                    /* 存活的线程数 - 1*/
+
+                    (pool->m_aliveThreadNums)--;
+                    pthread_mutex_unlock(&(pool->m_mutex));
+
+                    printf("%ld exit threadpool\n", pthread_self());
+
+                    /* 线程退出 */
+                    exitThread(pool, pthread_self());
+                }
+            }
         }
         /* 从任务队列里面取数据 */
         Task_t newTask;
@@ -113,7 +223,7 @@ ThreadPool::ThreadPool(int minThreads, int maxThreads, int maxQueueCapacity)
             _exit(-1);
         }
         /* 存活的线程数 + 1*/
-        this->m_busyThreadNums++;
+        this->m_aliveThreadNums++;
     }
     /* 锁的初始化 */
     pthread_mutex_init(&m_mutex, NULL);
@@ -122,6 +232,9 @@ ThreadPool::ThreadPool(int minThreads, int maxThreads, int maxQueueCapacity)
     /* 条件变量初始化 */
     pthread_cond_init(&m_queueNotEmpty, NULL);
     pthread_cond_init(&m_queueNotFull, NULL);
+
+    /* 杀掉的线程数 */
+    this->m_exitNum = 0;
 }
 
 void ThreadPool::addTask(void *(*function)(void *arg), void *arg)
