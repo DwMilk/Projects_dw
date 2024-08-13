@@ -11,10 +11,11 @@ using namespace std;
 #include "ThreadPool.h"
 #define BUFFER_SIZE 1024
 
-void * handleClinetInfo(void *arg)
+void *handleClinetInfo(void *arg)
 {
     pthread_detach(pthread_self());
-    auto clientInfo = *(StdTcpSocketPtr *)arg;
+    // auto clientInfo = *(StdTcpSocketPtr *)arg;
+    StdTcpSocketPtr clientInfo = *static_cast<StdTcpSocketPtr*>(arg);
     int readBytes = 0;
     Msg msg;
     /* 清空脏数据 */
@@ -37,14 +38,14 @@ void * handleClinetInfo(void *arg)
     }
     /* 资源回收 */
     /* 线程退出 */
-    
+
     // pthread_exit(NULL);
     return NULL;
 }
 int main()
 {
     /* 创建线程池对象 */
-    ThreadPool pool(3, 8, 20);
+    ThreadPool pool(2, 5, 20);
 
     /* 创建服务器对象 */
     StdTcpServer server;
@@ -69,7 +70,8 @@ int main()
             _exit(-1);
         }
 #else
-        pool.addTask(handleClinetInfo, &clientInfo);
+        // pool.addTask(handleClinetInfo, &clientInfo);
+        pool.addTask(handleClinetInfo, new StdTcpSocketPtr(clientInfo));
 
 #endif
         sleep(1);

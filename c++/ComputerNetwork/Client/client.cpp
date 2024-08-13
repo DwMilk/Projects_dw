@@ -4,17 +4,18 @@ using namespace std;
 #include <unistd.h>
 #include "stdShared.h"
 #include <cstring>
-
+#include "chatroom.h"
 /* 界面菜单 */
 void interaceMenu()
 {
+    // cleanScreen();
     cout << "1. 注册" << endl;
     cout << "2. 登录" << endl;
     cout << "3. 退出" << endl;
 }
 
 /* 注册功能 */
-void registerFunc(StdTcpSocket &client)
+void registerFunc(StdTcpSocketPtr &client)
 {
     string username, passwd, type;
     type = "1";
@@ -29,25 +30,25 @@ void registerFunc(StdTcpSocket &client)
     memset(&msg, 0, sizeof(msg));
 
     msg.type = REGISTER;
-    strncpy(msg.name, username.c_str(), sizeof(msg.name) - 1);
+    strncpy(msg.Usrname, username.c_str(), sizeof(msg.Usrname) - 1);
     strncpy(msg.passwd, passwd.c_str(), sizeof(msg.passwd) - 1);
 
     /* 将用户和密码发送给服务器 */
-    client.sendMessage(&msg, sizeof(msg));
+    client->sendMessage(&msg, sizeof(msg));
     ReplyMsg recvMsg;
-    client.recvMessage((void *)&recvMsg, sizeof(recvMsg));
+    client->receiveMessage((void *)&recvMsg, sizeof(recvMsg));
     if (recvMsg.statue_code == REGISTER_SUCCESS)
     {
-        cout << " 注册成功 " << endl;
+        cout << "注册成功 " << endl;
     }
     else if (recvMsg.statue_code == REGISTER_USEREXIST)
     {
-        cout << " 重复注册，用户已经存在 " << endl;
+        cout << "重复注册，用户已经存在 " << endl;
     }
 }
 
 /* 登录功能 */
-void loginFunc(StdTcpSocket &client)
+void loginFunc(StdTcpSocketPtr &client)
 {
     string username, passwd, type;
     type = "2";
@@ -62,16 +63,20 @@ void loginFunc(StdTcpSocket &client)
     memset(&msg, 0, sizeof(msg));
 
     msg.type = LOGIN;
-    strncpy(msg.name, username.c_str(), sizeof(msg.name) - 1);
+    strncpy(msg.Usrname, username.c_str(), sizeof(msg.Usrname) - 1);
     strncpy(msg.passwd, passwd.c_str(), sizeof(msg.passwd) - 1);
 
     /* 将用户和密码发送给服务器 */
-    client.sendMessage(&msg, sizeof(msg));
+    client->sendMessage(&msg, sizeof(msg));
     ReplyMsg recvMsg;
-    client.recvMessage((void *)&recvMsg, sizeof(recvMsg));
+    client->receiveMessage((void *)&recvMsg, sizeof(recvMsg));
     if (recvMsg.statue_code == LOGIN_SUCCESS)
     {
-        cout << " 登陆成功 " << endl;
+        cout << "登陆成功 " << endl;
+        sleep(2);
+        ChatRoom chatroom(client);
+        chatroom.ChatEntry();
+        
     }
     else if (recvMsg.statue_code == LOGIN_PASSWD_ERROR)
     {
@@ -79,18 +84,18 @@ void loginFunc(StdTcpSocket &client)
     }
     else if (recvMsg.statue_code == LOGIN_NOUSER)
     {
-        cout << " 没有该用户 " << endl;
+        cout << "没有该用户 " << endl;
     }
 }
 
 int main()
 {
     /* 客户端 */
-    StdTcpSocket client;
+    StdTcpSocketPtr client = std::make_shared<StdTcpSocket>();
 
     /* 连接服务器 */
     const char *serverIp = "192.168.23.134";
-    int ret = client.connectToServer(serverIp, 8080);
+    int ret = client->connctToServer(serverIp, 8080);
     if (ret != 0)
     {
         cout << "connectToServer error" << endl;

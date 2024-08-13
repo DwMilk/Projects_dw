@@ -2,10 +2,10 @@
 CXX := g++
 # 编译标志：启用所有警告，优化级别设置为 O2，加入调试信息
 #Compilation flags:enable all warnings, set optimization level to 02,include debug information
-CXXFLAGS := -Wall -Wextra -Wpedantic -O2 -g
+CXXFLAGS := -Wall -Wpedantic -g
 #Linker Flags:can be selectively added during compilation,e.g., -pthread for multi-threading support
 # 链接器标志：可在编译时选择性添加，例如 -pthread 用于多线程支持
-LDFLAGS :=
+LDFLAGS := -lmysqlclient -lsqlite3 
 
 # 目录
 # 存放目标文件的目录

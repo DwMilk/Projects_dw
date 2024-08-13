@@ -3,8 +3,22 @@ using namespace std;
 /* 构造函数 */
 MessageHandle::MessageHandle(const StdTcpSocketPtr & clientInfo) : m_function(clientInfo)
 {
+    /* 注册业务 */
     m_handles[REGISTER] = [this](const Msg & msg){ m_function.handleRegisterInfo(msg);};
     m_handles[LOGIN] = [this](const Msg & msg){ m_function.handleLoginInfo(msg);};
+
+    /* 好友业务 */
+    m_handles[ADDFRIEND] = [this](const Msg & msg) { m_function.handleAddFrienfInfo(msg);};
+    m_handles[DELETEFRIEND] = [this](const Msg & msg) { m_function.handleDeleteFrienfInfo(msg);};
+    m_handles[FRIENDCHAT] = [this](const Msg & msg) { m_function.handleFriendChatInfo(msg);};
+    m_handles[FRIENDLIST] = [this](const Msg & msg){ m_function.handleFriendListInfo(msg);};
+
+    /* 群组业务 */
+    m_handles[NEWGROUP] = [this](const Msg & msg) { m_function.handleNewGroupInfo(msg);};
+    m_handles[EXITGROUP] = [this](const Msg & msg){ m_function.handleExitGroupInfo(msg);};
+    m_handles[JOINGROUP] = [this](const Msg & msg){ m_function.handleJoinGroupInfo(msg);};
+    m_handles[INVITEGROUP] = [this](const Msg & msg){ m_function.handleInviteInfo(msg);};
+    m_handles[CHATGROUP] = [this](const Msg & msg){ m_function.handleGroupChatInfo(msg);};
 }
 /* 析构函数 */
 MessageHandle::~MessageHandle()
@@ -14,32 +28,6 @@ MessageHandle::~MessageHandle()
 /* 处理信息 */
 void MessageHandle::handleMessage(const Msg &msg)
 {
-#if 0
-    if (msg.type == REGISTER)
-    {
-        m_function.handleRegisterInfo(msg);
-    }
-    else if (msg.type == LOGIN)
-    {
-        m_function.handleLoginInfo(msg);
-    }
-    else if (msg.type == ADDFRIEND)
-    {
-        m_function.handleAddFrienfInfo();
-    }
-    else if (msg.type == DELETEFRIEND)
-    {
-        m_function.handleDeleteFrienfInfo();
-    }
-    else if (msg.type == NEWGROUP)
-    {
-        m_function.handleNewGroup();
-    }
-    else if (msg.type == EXITGROUP)
-    {
-        m_function.handleExitGroupInfo();
-    }
-#endif
     auto iter = m_handles.find(msg.type);
     if(iter != m_handles.end())
     {

@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <signal.h>
 #define DEFAULT_MINTHREADS 3
-#define DEFAULT_MAXTHREADS 8
+#define DEFAULT_MAXTHREADS 5
 #define INCREASE_NUMS 2
 #define DECREASE_NUMS 2
 // /* 判断线程是否存活 */
